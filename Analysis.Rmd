@@ -1,7 +1,7 @@
 ---
-title: "RNA-seq vs Microarray"
-author: "Jessica Minnier"
-date: "July 1, 2017"
+title: "RNA-Seq and Expression Arrays: Selection Guidelines for Genome-wide Expression Profiling"
+author: "Jessica Minnier, OHSU"
+date: "July 28, 2017"
 output:
   html_document:
     code_folding: hide
@@ -36,7 +36,7 @@ source('ClusteringPlots.R')
 
 # Microarray Analysis
 
-```{r microarray_data, cache=TRUE}
+```{r microarray_data}
 # Read in the affy data, normalize, and filter based on background level
 
 if(FALSE){
@@ -223,7 +223,7 @@ kable(tmptab)
 
 # RNA-seq Analysis
 
-```{r rnaseq, cache=TRUE}
+```{r rnaseq}
 library(EnsDb.Mmusculus.v79)
 library(ensembldb)
 
