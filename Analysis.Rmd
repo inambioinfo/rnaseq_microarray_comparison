@@ -1,7 +1,7 @@
 ---
 title: "RNA-seq vs Microarray"
 author: "Jessica Minnier"
-date: "June 15, 2017"
+date: "July 1, 2017"
 output:
   html_document:
     code_folding: hide
@@ -36,14 +36,14 @@ source('ClusteringPlots.R')
 
 # Microarray Analysis
 
-```{r microarray_data}
+```{r microarray_data, cache=TRUE}
 # Read in the affy data, normalize, and filter based on background level
 
 if(FALSE){
   # Annotation
   annot_transcript = read_csv("MTA-1_0.na36.mm10.transcript.csv",skip=21) #73033 for each transcript cluster ID
   # Add additional annotation
-  annotmta = read_tsv("../data/annotmta.txt")
+  annotmta = read_tsv("annotmta.txt")
   annotmta = annotmta%>%dplyr::select(`Transcript Cluster ID`,
                                       `Gene Symbol`,
                                       `Public Gene IDs`,
@@ -55,7 +55,7 @@ if(FALSE){
   
   #add in code from S drive to make annot_transcript
 }
-annot_transcript = read_csv("annot_transcript.csv")
+annot_transcript = read_csv("../data/annot_transcript.csv")
 xx = str_split(annot_transcript$`Gene Symbol`,pattern = "; ")
 names(xx) = annot_transcript$transcript_cluster_id
 all_mta_genesymbols = unlist(xx) # can use to match to RNA-seq?
@@ -139,7 +139,8 @@ results_MA <- tmpres%>%
         "pvalue_MA"=P.Value,
         "qvalue_MA_BH"=adj.P.Val)%>%
   mutate("qvalue_MA_Storey" = qvalue(pvalue_MA)$qvalues,
-         "signif_MA_Storey" = 1*(qvalue_MA_Storey<.05)*(abs(logFC_MA_limma)>0.5))
+         #"signif_MA_Storey" = 1*(qvalue_MA_Storey<.05)*(abs(logFC_MA_limma)>0.5))
+         "signif_MA_Storey" = 1*(qvalue_MA_Storey<.05))
 rm(tmpres)
 
 # Add normalized intensities from MTA - affy
@@ -212,7 +213,7 @@ gene_volcanoplot(results_MA,
 
 ## Significant Genes from microarray results, by locus type
 
-Significance is defined as Storey's q-value < 5% and absolute value of log2-fold-change greater than 0.5.
+Significance is defined as Storey's q-value < 0.05.
 
 ```{r}
 tmptab = table(results_MA$`locus type`,results_MA$signif_MA_Storey)
@@ -222,7 +223,7 @@ kable(tmptab)
 
 # RNA-seq Analysis
 
-```{r rnaseq}
+```{r rnaseq, cache=TRUE}
 library(EnsDb.Mmusculus.v79)
 library(ensembldb)
 
@@ -262,7 +263,7 @@ rnaseq_counts = rnaseq_counts%>%dplyr::select(ensembl_id,gene_name,geneSymbol,en
 # tmpind_filter <- which(genefilter(log2(1+rnaseq_counts[,-(1:3)]), 
 #                                   filterfun(kOverA(k=2, A=5))))
 dge <- edgeR::DGEList(counts=rnaseq_counts[,-(1:5)]) # TMM normalization
-tmpind_filter <- which(rowSums(edgeR::cpm(dge)>1) >= 2)
+tmpind_filter <- which(rowSums(edgeR::cpm(dge)>0.2) >= 2)
 #print(length(tmpind_filter)) # number kept
 rnaseq_counts_filtered = rnaseq_counts[tmpind_filter,]
 counts = rnaseq_counts_filtered[,-(1:5)]
@@ -301,7 +302,8 @@ results_rnaseq_exact <- tmpres%>%
         "pvalue_RNAseq"=PValue,
         "qvalue_RNAseq_BH"=FDR)%>%
   mutate("qvalue_RNAseq_Storey" = qvalue(pvalue_RNAseq)$qvalues,
-         "signif_RNAseq_Storey" = 1*(qvalue_RNAseq_Storey<.05)*(abs(logFC_RNAseq)>0.5))
+         #"signif_RNAseq_Storey" = 1*(qvalue_RNAseq_Storey<.05)*(abs(logFC_RNAseq)>0.5))
+         "signif_RNAseq_Storey" = 1*(qvalue_RNAseq_Storey<.05))
 colnames(results_rnaseq_exact)[-(1:5)] = paste0(colnames(results_rnaseq_exact)[-(1:5)],"_exact")
 rm(tmpres)
 
@@ -346,7 +348,8 @@ results_rnaseq <- tmpres%>%
         "pvalue_RNAseq"=P.Value,
         "qvalue_RNAseq_BH"=adj.P.Val)%>%
   mutate("qvalue_RNAseq_Storey" = qvalue(pvalue_RNAseq)$qvalues,
-         "signif_RNAseq_Storey" = 1*(qvalue_RNAseq_Storey<.05)*(abs(logFC_RNAseq_limma)>0.5))
+         #"signif_RNAseq_Storey" = 1*(qvalue_RNAseq_Storey<.05)*(abs(logFC_RNAseq_limma)>0.5))
+         "signif_RNAseq_Storey" = 1*(qvalue_RNAseq_Storey<.05))
 rm(tmpres)
 
 # Add normalized intensities
@@ -615,7 +618,7 @@ Here we show that logFC between FD6 and FN is correlated between microarray and 
 CAPTION: Scatterplot of log2-fold-change in RNA-seq (y-axis) vs. microarray (x-axis). Each point represents a gene,
 with darker color representing higher average expression in the FD6 group with RNA-seq data. Panels represent the quantiles of average FD6 RNA-seq expression. Pearson correlations are presented as well as the intercept and slope of a univariate regression of y = log2-FC (RNA-seq) regressed on x = log2-FC (MA). Black line represents diagonal.
 
-```{r figure2, dpi=400, fig.width=4.5,fig.height=4}
+```{r figure2, dpi=400, fig.width=4.5,fig.height=4,fig.ext="tiff"}
 ggplot(data = results_all%>%filter(!is.na(logFC_MA_limma),!is.na(logFC_RNAseq_limma),!is.na(tmp)),
        aes(x = logFC_MA_limma, y = logFC_RNAseq_limma, color = FD6.rnaseq.voom_mean)) +
   geom_point() +
@@ -623,7 +626,29 @@ ggplot(data = results_all%>%filter(!is.na(logFC_MA_limma),!is.na(logFC_RNAseq_li
   geom_text(data = tmpdat,aes(x=minx,y=maxy,label=paste(lmtext,"\n",cortext)),size=3,inherit.aes = FALSE)+
   geom_abline(intercept = 0, slope = 1) +
   #ggtitle(paste0("logFC: MA vs RNA-seq by Quartiles of FD6 Expression"))+
-  scale_color_gradient_tableau(name="RNA-seq\naverage \nexpression")+
+  scale_color_gradient_tableau(name="RNA-seq average \nlog2-expression")+
+  #scale_color_continuous_tableau()+
+  xlab("log2(FC in MA)")+ylab("log2(FC in RNA-seq)")+
+  theme_bw() +theme(legend.position = "bottom",
+                    legend.title=element_text(size=8),
+                    legend.text = element_text(size=8),
+                    axis.title = element_text(size=9))+
+  guides(color=guide_colorbar(barheight=0.5))
+  #+ scale_color_brewer(palette = 'Set1')
+```
+
+Genes significant with MA:
+
+```{r figure2deMA}
+ggplot(data = results_all%>%filter(!is.na(logFC_MA_limma),!is.na(logFC_RNAseq_limma),!is.na(tmp),
+                                   qvalue_MA_Storey<.05),
+       aes(x = logFC_MA_limma, y = logFC_RNAseq_limma, color = FD6.rnaseq.voom_mean)) +
+  geom_point() +
+  facet_wrap(~ tmp) +
+  #geom_text(data = tmpdat,aes(x=minx,y=maxy,label=paste(lmtext,"\n",cortext)),size=3,inherit.aes = FALSE)+
+  geom_abline(intercept = 0, slope = 1) +
+  #ggtitle(paste0("logFC: MA vs RNA-seq by Quartiles of FD6 Expression"))+
+  scale_color_gradient_tableau(name="RNA-seq\naverage \nlog2-expression")+
   #scale_color_continuous_tableau()+
   xlab("log2(FC in MA)")+ylab("log2(FC in RNA-seq)")+
   theme_bw() +theme(legend.position = "bottom")+
@@ -631,6 +656,45 @@ ggplot(data = results_all%>%filter(!is.na(logFC_MA_limma),!is.na(logFC_RNAseq_li
   #+ scale_color_brewer(palette = 'Set1')
 ```
 
+Genes significant with RNA-seq:
+
+```{r figure2deSeq}
+ggplot(data = results_all%>%filter(!is.na(logFC_MA_limma),!is.na(logFC_RNAseq_limma),!is.na(tmp),
+                                   qvalue_RNAseq_Storey<.05),
+       aes(x = logFC_MA_limma, y = logFC_RNAseq_limma, color = FD6.rnaseq.voom_mean)) +
+  geom_point() +
+  facet_wrap(~ tmp) +
+  #geom_text(data = tmpdat,aes(x=minx,y=maxy,label=paste(lmtext,"\n",cortext)),size=3,inherit.aes = FALSE)+
+  geom_abline(intercept = 0, slope = 1) +
+  #ggtitle(paste0("logFC: MA vs RNA-seq by Quartiles of FD6 Expression"))+
+  scale_color_gradient_tableau(name="RNA-seq\naverage \nlog2-expression")+
+  #scale_color_continuous_tableau()+
+  xlab("log2(FC in MA)")+ylab("log2(FC in RNA-seq)")+
+  theme_bw() +theme(legend.position = "bottom")+
+  guides(color=guide_colorbar(barheight=0.5))
+  #+ scale_color_brewer(palette = 'Set1')
+```
+
+
+Genes significant with both MA and RNA-seq:
+
+```{r figure2deBoth}
+ggplot(data = results_all%>%filter(!is.na(logFC_MA_limma),!is.na(logFC_RNAseq_limma),!is.na(tmp),
+                                   qvalue_RNAseq_Storey<.05,
+                                   qvalue_MA_Storey<.05),
+       aes(x = logFC_MA_limma, y = logFC_RNAseq_limma, color = FD6.rnaseq.voom_mean)) +
+  geom_point() +
+  facet_wrap(~ tmp) +
+  #geom_text(data = tmpdat,aes(x=minx,y=maxy,label=paste(lmtext,"\n",cortext)),size=3,inherit.aes = FALSE)+
+  geom_abline(intercept = 0, slope = 1) +
+  #ggtitle(paste0("logFC: MA vs RNA-seq by Quartiles of FD6 Expression"))+
+  scale_color_gradient_tableau(name="RNA-seq\naverage \nlog2-expression")+
+  #scale_color_continuous_tableau()+
+  xlab("log2(FC in MA)")+ylab("log2(FC in RNA-seq)")+
+  theme_bw() +theme(legend.position = "bottom")+
+  guides(color=guide_colorbar(barheight=0.5))
+  #+ scale_color_brewer(palette = 'Set1')
+```
 
 We can show this same plot in one panel overall:
 
@@ -646,7 +710,7 @@ ggplot(data = results_all%>%filter(!is.na(logFC_MA_limma),!is.na(logFC_RNAseq_li
   geom_point() +
   geom_text(data = tmpdat,aes(x=minx,y=maxy,label=cortext),inherit.aes = FALSE)+
   geom_abline(intercept = 0, slope = 1) +
-  ggtitle(paste0("logFC: MA vs RNA-seq by Quartiles of FD6 Expression"))+
+  ggtitle(paste0("logFC: MA vs RNA-seq"))+
   scale_color_gradient_tableau(name="RNA-seq\naverage expression \nin FD6")+
   #scale_color_continuous_tableau()+
   xlab("logFC MA")+ylab("logFC RNA-seq")+
@@ -695,7 +759,7 @@ if(require("naniar")) {
 
 ### MA Plots
 
-MA plot of log2fc FD6 vs FN on the y-axis and average FD6 expression on the x-axis. Blue points are genes that are significant in one platform but no the other, while green points are significant in both platforms. Significance is defined as Storey q-value < 0.05 and abs(log2-fc) > 0.5.
+MA plot of log2fc FD6 vs FN on the y-axis and average FD6 expression on the x-axis. Blue points are genes that are significant in one platform but no the other, while green points are significant in both platforms. Significance is defined as Storey q-value < 0.05.
 
 ```{r}
 results_all$unique_id = 1:nrow(results_all)
@@ -738,7 +802,7 @@ p + facet_grid(signif~platform,scales="free_x")
 ```
 
 
-### Venn Diagrams of Significance
+## Venn Diagrams of Significance
 
 Storey's q-value < 0.05
 
@@ -771,7 +835,7 @@ plot(Venn(list("RNA-seq"=tmpind1,"MA"=tmpind2)),doWeights=TRUE)
 ```
 
 
-## Intersect q-value and fold change cut offs separately
+### Intersect q-value and fold change cut offs separately
 
 ```{r}
 tmpind1 = with(results_all,
@@ -789,6 +853,27 @@ plot(Venn(list("RNA-seq - logFC>0.5"=tmpind1,
      doWeights=FALSE,type="ellipses")
 ```
 
+## List of top genes
+
+Largest RNA-seq fold changes
+
+```{r}
+
+tmpdat = results_all%>%arrange(desc(abs(logFC_RNAseq_limma)))%>%
+  select(ensembl_id,gene_name,gene_biotype,`locus type`,logFC_RNAseq_limma,logFC_MA_limma,
+         pvalue_RNAseq,qvalue_RNAseq_Storey,pvalue_MA,qvalue_MA_Storey,
+         FD6.rnaseq.voom_mean,FN.rnaseq.voom_mean,FD6.affy.mta.rma_mean,FN.affy.mta.rma_mean,Description)
+tmpdat2 = rnaseq_counts
+colnames(tmpdat2) = gsub("voom","counts",colnames(tmpdat2))
+
+tmpdat = left_join(tmpdat,tmpdat2)
+
+tmpdat%>%head(50)%>%kable(digits=3)
+
+write_csv(tmpdat,path="results_by_rnaseqfc.csv")
+
+```
+
 
 # Pathway Analysis
 
@@ -803,6 +888,9 @@ go_RNAseq <- goana(de = tmpentrez_de,
                universe = tmpentrez, species="Mm")
 topgo_RNAseq = topGO(go_RNAseq,number=Inf)
 topgo_RNAseq = rownames_to_column(topgo_RNAseq,"goid")
+
+topgo_RNAseq_BP = topGO(go_RNAseq,number=Inf,ontology = "BP")
+topgo_RNAseq_BP = rownames_to_column(topgo_RNAseq_BP,"goid")
 
 tmpkey= results_MA$ENSEMBL
 tmpkey[is.na(tmpkey)] = "1"
@@ -822,26 +910,29 @@ go_MA <- goana(de = tmpentrez2_de,
                universe = tmpentrez2, species="Mm")
 topgo_MA = topGO(go_MA,number=Inf)
 topgo_MA = rownames_to_column(topgo_MA,"goid")
+
+topgo_MA_BP = topGO(go_MA,number=Inf,ontology = "BP")
+topgo_MA_BP = rownames_to_column(topgo_MA_BP,"goid")
 ```
 
 Top 10 RNA-seq GO pathways
 
 ```{r}
-head(topgo_RNAseq,n=10)%>%kable
+head(topgo_RNAseq_BP,n=10)%>%kable
 ```
 
 Top 10 Micorarray GO pathways
 
 ```{r}
-head(topgo_MA,n=10)%>%kable
+head(topgo_MA_BP,n=10)%>%kable
 ```
 
 Venn diagram of GO pathways with p-value < 0.05 in each platform:
 
 ```{r}
 
-tmpind1 = topgo_RNAseq$goid[which(topgo_RNAseq$P.DE<.05)]
-tmpind2 = topgo_MA$goid[which(topgo_MA$P.DE<.05)]
+tmpind1 = topgo_RNAseq_BP$goid[which(topgo_RNAseq_BP$P.DE<.05)]
+tmpind2 = topgo_MA_BP$goid[which(topgo_MA_BP$P.DE<.05)]
 
 plot(Venn(list("RNA-seq"=tmpind1,"    MA"=tmpind2)),doWeights=TRUE)
 ```
@@ -849,8 +940,8 @@ plot(Venn(list("RNA-seq"=tmpind1,"    MA"=tmpind2)),doWeights=TRUE)
 Top 10 GO terms significant in RNA-seq but not micorarray:
 
 ```{r}
-topgo_RNAseq_signif = topgo_RNAseq[which(topgo_RNAseq$P.DE<.05),]
-topgo_MA_signif = topgo_MA[which(topgo_MA$P.DE<.05),]
+topgo_RNAseq_signif = topgo_RNAseq_BP[which(topgo_RNAseq_BP$P.DE<.05),]
+topgo_MA_signif = topgo_MA_BP[which(topgo_MA_BP$P.DE<.05),]
 length(topgo_RNAseq_signif$goid)
 length(topgo_MA_signif$goid)
 length(intersect(topgo_MA_signif$goid,topgo_RNAseq_signif$goid))
@@ -964,9 +1055,9 @@ c(sum(results_MA_full$`locus type`!="---",na.rm=T),nrow(results_rnaseq_full),
      ")"),
   
   "# GO terms identified" = 
-    c(nrow(topgo_MA),nrow(topgo_RNAseq),length(intersect(topgo_MA$goid,topgo_RNAseq$goid))),
+    c(nrow(topgo_MA_BP),nrow(topgo_RNAseq_BP),length(intersect(topgo_MA_BP$goid,topgo_RNAseq_BP$goid))),
     "# GO terms significant" = 
-    c(sum(topgo_MA$P.DE<.05),sum(topgo_RNAseq$P.DE<.05),length(intersect(topgo_MA_signif$goid,topgo_RNAseq_signif$goid)))
+    c(sum(topgo_MA_BP$P.DE<.05),sum(topgo_RNAseq_BP$P.DE<.05),length(intersect(topgo_MA_signif$goid,topgo_RNAseq_signif$goid)))
     
 )
 colnames(tab_summary) = c("MA","RNA-seq","Overlap")
@@ -994,7 +1085,11 @@ Distribution of expresson/FC in genes significant in MA:
 
 ```{r}
 results_all_full%>%filter(qvalue_MA_Storey<.05)%>%rownames_to_column("id")%>%
-  select(id,logFC_RNAseq_limma,logFC_MA_limma,FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
+  mutate(abslogFC_RNAseq_limma = abs(logFC_RNAseq_limma),
+         abslogFC_MA_limma = abs(logFC_MA_limma))%>%
+  select(id,logFC_RNAseq_limma,logFC_MA_limma,
+         abslogFC_RNAseq_limma,abslogFC_MA_limma,
+         FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
   gather(key=key,value=value,-id)%>%group_by(key)%>%
   summarize_at(vars(value),.funs=funs(mean,median,min,max,IQR25=quantile(.,.25,na.rm=TRUE),
                        IQR75=quantile(.,.75,na.rm=TRUE)),na.rm=TRUE)%>%kable(digits=2)
@@ -1020,12 +1115,34 @@ summary(results_all_full%>%filter(qvalue_RNAseq_Storey<.05)%>%select(logFC_RNAse
 
 ```
 
-Distribution of expresson/FC in genes significant in MA:
+Distribution of expresson/FC in genes significant in RNA-seq:
 
 ```{r}
 
 results_all_full%>%filter(qvalue_RNAseq_Storey<.05)%>%rownames_to_column("id")%>%
-  select(id,logFC_RNAseq_limma,logFC_MA_limma,FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
+    mutate(abslogFC_RNAseq_limma = abs(logFC_RNAseq_limma),
+         abslogFC_MA_limma = abs(logFC_MA_limma))%>%
+  select(id,logFC_RNAseq_limma,logFC_MA_limma,
+         abslogFC_RNAseq_limma,abslogFC_MA_limma,
+         FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
+  gather(key=key,value=value,-id)%>%group_by(key)%>%
+  summarize_at(vars(value),.funs=funs(mean,median,min,max,IQR25=quantile(.,.25,na.rm=TRUE),
+                       IQR75=quantile(.,.75,na.rm=TRUE)),na.rm=TRUE)%>%kable(digits=3)
+#do(fivenum)
+
+```
+
+Distribution of expresson/FC in genes significant in both:
+
+```{r}
+
+results_all_full%>%filter(qvalue_RNAseq_Storey<.05,qvalue_MA_Storey<.05)%>%
+  rownames_to_column("id")%>%
+    mutate(abslogFC_RNAseq_limma = abs(logFC_RNAseq_limma),
+         abslogFC_MA_limma = abs(logFC_MA_limma))%>%
+  select(id,logFC_RNAseq_limma,logFC_MA_limma,
+         abslogFC_RNAseq_limma,abslogFC_MA_limma,
+         FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
   gather(key=key,value=value,-id)%>%group_by(key)%>%
   summarize_at(vars(value),.funs=funs(mean,median,min,max,IQR25=quantile(.,.25,na.rm=TRUE),
                        IQR75=quantile(.,.75,na.rm=TRUE)),na.rm=TRUE)%>%kable(digits=3)
