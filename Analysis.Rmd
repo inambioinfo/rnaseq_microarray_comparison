@@ -3,6 +3,8 @@ title: "RNA-Seq and Expression Arrays: Selection Guidelines for Genome-wide Expr
 author: "Jessica Minnier, OHSU"
 date: "July 28, 2017"
 output:
+  github_document:
+    toc: yes
   html_document:
     code_folding: hide
     number_sections: yes
@@ -238,7 +240,7 @@ annot <- AnnotationDbi::select(org.Mm.eg.db,keys=rnaseq_counts$ensembl_id,
 sort(table(annot$ENSEMBL),decreasing = TRUE)[1:20]
 
 gene_dataframe_EnsDb <- ensembldb::genes(EnsDb.Mmusculus.v79,
-              columns=c("entrezid", "gene_biotype"), #gene_name
+              columns=c("gene_id","entrezid", "gene_biotype"), #gene_name
               filter=list(GeneidFilter(rnaseq_counts$ensembl_id)),
               return.type="data.frame")
 colnames(gene_dataframe_EnsDb)[1] = "ensembl_id"
@@ -725,8 +727,8 @@ Comparing the correlations of p-values and q-values from the two platform analys
 tmpx = -log10(results_all$pvalue_MA)
 tmpy = -log10(results_all$pvalue_RNAseq)
 
-p <- ggplot(data=results_all,
-       aes(x=-log10(pvalue_MA),y=-log10(pvalue_RNAseq),col=FD6.rnaseq.voom_mean))+
+ggplot(data=results_all,
+       aes(x=-log10(pvalue_MA),y=-log10(pvalue_RNAseq),color=FD6.rnaseq.voom_mean))+
   geom_point()+geom_abline(intercept=0,slope=1)+
   ggtitle(paste0("-log10-Pvalue MA vs RNA-seq\ncor=",
                  signif(cor(tmpx,tmpy,use="pairwise.complete.obs"),3)))+
@@ -734,16 +736,13 @@ p <- ggplot(data=results_all,
   xlab("-log10(pvalue MA)")+ylab("-log10(pvalue RNA-seq)")+
   theme_minimal()
 
-if(require("naniar")) {
-  print(p + naniar::geom_missing_point())
-}else {print(p)}
 ```
 
 ```{r}
 tmpx = -log10(results_all$qvalue_MA_Storey)
 tmpy = -log10(results_all$qvalue_RNAseq_Storey)
 
-p <- ggplot(data=results_all,
+ggplot(data=results_all,
        aes(x=-log10(qvalue_MA_Storey),y=-log10(qvalue_RNAseq_Storey),col=FD6.rnaseq.voom_mean))+
   geom_point()+geom_abline(intercept=0,slope=1)+
   ggtitle(paste0("-log10-Qvalue MA vs RNA-seq\ncor=",
@@ -752,9 +751,6 @@ p <- ggplot(data=results_all,
   xlab("-log10(qvalue MA)")+ylab("-log10(qvalue RNA-seq)")+
   theme_minimal()
 
-if(require("naniar")) {
-  print(p + naniar::geom_missing_point())
-}else {print(p)}
 ```
 
 ### MA Plots
@@ -773,16 +769,16 @@ tmpresults_all = tmpresults_all%>%mutate(
   signif_RNAseq_Storey_both = signif_RNAseq_Storey+signif_both,
   signif_MA_Storey_both = signif_MA_Storey+signif_both)
 
-tmpA = tmpresults_all%>%select(unique_id,FD6.rnaseq.voom_mean,FD6.affy.mta.rma_mean)%>%
+tmpA = tmpresults_all%>%dplyr::select(unique_id,FD6.rnaseq.voom_mean,FD6.affy.mta.rma_mean)%>%
   rename(RNAseq = FD6.rnaseq.voom_mean, MA = FD6.affy.mta.rma_mean)%>%
   gather(platform,FD6.mean,-unique_id)
-tmpM = tmpresults_all%>%select(unique_id,logFC_RNAseq_limma,logFC_MA_limma)%>%
+tmpM = tmpresults_all%>%dplyr::select(unique_id,logFC_RNAseq_limma,logFC_MA_limma)%>%
   rename(RNAseq = logFC_RNAseq_limma, MA = logFC_MA_limma)%>%
   gather(platform,logFC,-unique_id)
 # tmpS = tmpresults_all%>%select(unique_id,signif_RNAseq_Storey_both,signif_MA_Storey_both)%>%
 #   rename(RNAseq = signif_RNAseq_Storey_both, MA = signif_MA_Storey_both)%>%
 #   gather(platform,signif,-unique_id)
-tmpS = tmpresults_all%>%select(unique_id,signif_both)%>%
+tmpS = tmpresults_all%>%dplyr::select(unique_id,signif_both)%>%
   rename(RNAseq = signif_both)%>%mutate(MA = RNAseq)%>%
   gather(platform,signif,-unique_id)
 
@@ -860,7 +856,7 @@ Largest RNA-seq fold changes
 ```{r}
 
 tmpdat = results_all%>%arrange(desc(abs(logFC_RNAseq_limma)))%>%
-  select(ensembl_id,gene_name,gene_biotype,`locus type`,logFC_RNAseq_limma,logFC_MA_limma,
+  dplyr::select(ensembl_id,gene_name,gene_biotype,`locus type`,logFC_RNAseq_limma,logFC_MA_limma,
          pvalue_RNAseq,qvalue_RNAseq_Storey,pvalue_MA,qvalue_MA_Storey,
          FD6.rnaseq.voom_mean,FN.rnaseq.voom_mean,FD6.affy.mta.rma_mean,FN.affy.mta.rma_mean,Description)
 tmpdat2 = rnaseq_counts
@@ -1070,14 +1066,14 @@ Distribution of expresson/FC in all genes:
 ```{r}
 
 results_all_full%>%rownames_to_column("id")%>%
-  select(id,logFC_RNAseq_limma,logFC_MA_limma,FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
+  dplyr::select(id,logFC_RNAseq_limma,logFC_MA_limma,FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
   gather(key=key,value=value,-id)%>%group_by(key)%>%
   summarize_at(vars(value),.funs=funs(mean,median,min,max,IQR25=quantile(.,.25,na.rm=TRUE),
                        IQR75=quantile(.,.75,na.rm=TRUE)),na.rm=TRUE)%>%kable(digits=2)
 
-summary(results_all_full%>%select(FD6.rnaseq.voom_1,FD6.rnaseq.voom_2,
+summary(results_all_full%>%dplyr::select(FD6.rnaseq.voom_1,FD6.rnaseq.voom_2,
                                   FN.rnaseq.voom_1,FN.rnaseq.voom_2)%>%unlist)
-summary(results_all_full%>%select(FD6.affy.mta.rma_1,FD6.affy.mta.rma_2,
+summary(results_all_full%>%dplyr::select(FD6.affy.mta.rma_1,FD6.affy.mta.rma_2,
                                         FN.affy.mta.rma_1,FN.affy.mta.rma_2)%>%unlist)
 ```
 
@@ -1087,15 +1083,17 @@ Distribution of expresson/FC in genes significant in MA:
 results_all_full%>%filter(qvalue_MA_Storey<.05)%>%rownames_to_column("id")%>%
   mutate(abslogFC_RNAseq_limma = abs(logFC_RNAseq_limma),
          abslogFC_MA_limma = abs(logFC_MA_limma))%>%
-  select(id,logFC_RNAseq_limma,logFC_MA_limma,
+  dplyr::select(id,logFC_RNAseq_limma,logFC_MA_limma,
          abslogFC_RNAseq_limma,abslogFC_MA_limma,
          FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
   gather(key=key,value=value,-id)%>%group_by(key)%>%
-  summarize_at(vars(value),.funs=funs(mean,median,min,max,IQR25=quantile(.,.25,na.rm=TRUE),
-                       IQR75=quantile(.,.75,na.rm=TRUE)),na.rm=TRUE)%>%kable(digits=2)
+  summarize_at(vars(value),
+               .funs=funs(mean,median,min,max,IQR25=quantile(.,.25,na.rm=TRUE),
+                          IQR75=quantile(.,.75,na.rm=TRUE)),na.rm=TRUE)%>%kable(digits=2)
 ```
 
 ```{r,include=FALSE}
+select = dplyr::select
 summary(results_all_full%>%filter(qvalue_MA_Storey<.05)%>%select(FD6.rnaseq.voom_1,FD6.rnaseq.voom_2,
                                   FN.rnaseq.voom_1,FN.rnaseq.voom_2)%>%unlist)
 summary(results_all_full%>%filter(qvalue_MA_Storey<.05)%>%select(FD6.affy.mta.rma_1,FD6.affy.mta.rma_2,
@@ -1122,11 +1120,12 @@ Distribution of expresson/FC in genes significant in RNA-seq:
 results_all_full%>%filter(qvalue_RNAseq_Storey<.05)%>%rownames_to_column("id")%>%
     mutate(abslogFC_RNAseq_limma = abs(logFC_RNAseq_limma),
          abslogFC_MA_limma = abs(logFC_MA_limma))%>%
-  select(id,logFC_RNAseq_limma,logFC_MA_limma,
+  dplyr::select(id,logFC_RNAseq_limma,logFC_MA_limma,
          abslogFC_RNAseq_limma,abslogFC_MA_limma,
          FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
   gather(key=key,value=value,-id)%>%group_by(key)%>%
-  summarize_at(vars(value),.funs=funs(mean,median,min,max,IQR25=quantile(.,.25,na.rm=TRUE),
+  summarize_at(vars(value),
+               .funs=funs(mean,median,min,max,IQR25=quantile(.,.25,na.rm=TRUE),
                        IQR75=quantile(.,.75,na.rm=TRUE)),na.rm=TRUE)%>%kable(digits=3)
 #do(fivenum)
 
@@ -1140,7 +1139,7 @@ results_all_full%>%filter(qvalue_RNAseq_Storey<.05,qvalue_MA_Storey<.05)%>%
   rownames_to_column("id")%>%
     mutate(abslogFC_RNAseq_limma = abs(logFC_RNAseq_limma),
          abslogFC_MA_limma = abs(logFC_MA_limma))%>%
-  select(id,logFC_RNAseq_limma,logFC_MA_limma,
+  dplyr::select(id,logFC_RNAseq_limma,logFC_MA_limma,
          abslogFC_RNAseq_limma,abslogFC_MA_limma,
          FD6FN.rnaseq.voom_mean,FD6FN.affy.mta.rma_mean)%>%
   gather(key=key,value=value,-id)%>%group_by(key)%>%
